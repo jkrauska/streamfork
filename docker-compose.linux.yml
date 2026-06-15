@@ -1,0 +1,18 @@
+# Linux / Proxmox LXC — use this instead of docker-compose.yml on the relay box.
+#
+# SRT is UDP; Docker Desktop on Mac mangles the client address on return packets,
+# so handshakes from Starlink never complete. On Linux, host networking binds
+# mediamtx directly on the host's :8890 with no docker-proxy in the path.
+#
+#   docker compose -f docker-compose.linux.yml up --build -d
+
+services:
+  streamfork:
+    image: ghcr.io/jkrauska/streamfork:latest
+    build: .
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./data:/data
+    environment:
+      STREAMFORK_CONFIG: /data/streamfork.yml

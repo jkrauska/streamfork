@@ -1,0 +1,39 @@
+version: 1
+
+# Native macOS / Linux dev — paths relative to repo root. Run: make run-local
+
+# Ports (see internal/config/ports.go):
+#   8787  control API    8854  RTSP preview    8890  SRT ingest    8935  RTMP
+server:
+  listen: "0.0.0.0:8787"   # all interfaces; use 127.0.0.1:8787 for localhost only
+  data_dir: data
+
+input:
+  path: field
+  srt_publish_passphrase: ""
+
+mediamtx:
+  binary: bin/mediamtx
+  config_path: data/mediamtx.yml
+  api_url: http://127.0.0.1:8797
+  rtsp_url: rtsp://127.0.0.1:8854
+
+recording:
+  enabled: true
+  path: data/recordings
+  segment_template: "%path/%Y-%m-%d_%H-%M-%S"
+  format: fmp4
+  segment_duration: 1h
+  delete_after: 0s
+
+outputs:
+  - id: youtube
+    label: YouTube
+    url: rtmp://a.rtmp.youtube.com/live2
+    stream_key: REPLACE_ME
+    enabled: false
+  - id: gamechanger
+    label: GameChanger
+    url: rtmps://live.example.com/app
+    stream_key: REPLACE_ME
+    enabled: false

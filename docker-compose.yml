@@ -1,0 +1,18 @@
+services:
+  streamfork:
+    image: ghcr.io/jkrauska/streamfork:latest
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8787:8787"    # control API (LAN/VPN only)
+      # SRT ingest — WARNING: Docker Desktop on Mac breaks UDP return packets for
+      # external callers (Starlink). Packets arrive but handshake replies go to the
+      # wrong address. Use docker-compose.linux.yml on Proxmox, or run natively on Mac.
+      # Set HOST_IP to your LAN address when ingesting SRT from another device.
+      - "${HOST_IP:-127.0.0.1}:8890:8890/udp"
+      - "8854:8854"    # RTSP preview (local/debug)
+      - "8935:8935"    # RTMP (local/debug)
+    volumes:
+      - ./data:/data
+    environment:
+      STREAMFORK_CONFIG: /data/streamfork.yml

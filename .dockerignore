@@ -1,0 +1,9 @@
+.git
+.github
+data/
+bin/
+*.mp4
+*~
+.env
+PLAN.md
+docs/

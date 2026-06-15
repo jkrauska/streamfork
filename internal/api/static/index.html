@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>streamfork</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1115;
+      --panel: #171a21;
+      --border: #2a3140;
+      --text: #e8ecf4;
+      --muted: #8b95a8;
+      --accent: #4f8cff;
+      --accent-dim: #2f5db8;
+      --ok: #3ecf8e;
+      --warn: #f5b942;
+      --bad: #f07178;
+      --idle: #6b7280;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at top, #171c26 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    main {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 3rem;
+    }
+
+    header {
+      margin-bottom: 1.75rem;
+    }
+
+    h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.75rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .cards {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+    }
+
+    .card h2 {
+      margin: 0 0 0.75rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    .input-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      align-items: center;
+    }
+
+    .input-layout {
+      display: grid;
+      gap: 1rem;
+    }
+
+    @media (min-width: 560px) {
+      .input-layout {
+        grid-template-columns: 220px 1fr;
+        align-items: start;
+      }
+    }
+
+    .input-preview {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      border-radius: 10px;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+    }
+
+    .input-preview img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .input-preview-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .input-preview.offline img {
+      opacity: 0.35;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+    }
+
+    .dot {
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 50%;
+      background: var(--idle);
+    }
+
+    .pill.online .dot { background: var(--ok); box-shadow: 0 0 8px rgba(62, 207, 142, 0.65); }
+    .pill.offline .dot { background: var(--bad); }
+    .pill.live .dot { background: var(--ok); box-shadow: 0 0 8px rgba(62, 207, 142, 0.65); }
+    .pill.connecting .dot,
+    .pill.reconnecting .dot { background: var(--warn); }
+    .pill.failed .dot { background: var(--bad); }
+    .pill.stopped .dot,
+    .pill.idle .dot { background: var(--idle); }
+
+    .stat {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .stat strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .outputs {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .output {
+      display: grid;
+      gap: 0.75rem;
+      padding: 0.95rem 1rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+    }
+
+    .output-header {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .output-info {
+      min-width: 0;
+    }
+
+    .output-title {
+      margin: 0 0 0.2rem;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .output-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.85rem;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .output-error {
+      margin-top: 0.35rem;
+      color: var(--bad);
+      font-size: 0.82rem;
+      word-break: break-word;
+    }
+
+    .output-fields {
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 0.25rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+
+    .field input {
+      width: 100%;
+      padding: 0.55rem 0.7rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.92rem;
+    }
+
+    .field input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.2);
+    }
+
+    .field input:disabled {
+      opacity: 0.55;
+    }
+
+    .output-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      padding: 0.45rem 0.85rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      background: rgba(79, 140, 255, 0.12);
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .toggle {
+      position: relative;
+      width: 3.1rem;
+      height: 1.75rem;
+      flex-shrink: 0;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: #2d3444;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .toggle-track::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 1.25rem;
+      height: 1.25rem;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.15s ease;
+    }
+
+    .toggle input:checked + .toggle-track {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+
+    .toggle input:checked + .toggle-track::after {
+      transform: translateX(1.35rem);
+    }
+
+    .toggle input:disabled + .toggle-track {
+      opacity: 0.45;
+      cursor: wait;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 0.95rem;
+      padding: 0.5rem 0;
+    }
+
+    .footer {
+      margin-top: 1rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: right;
+    }
+
+    .error-banner {
+      display: none;
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      background: rgba(240, 113, 120, 0.12);
+      border: 1px solid rgba(240, 113, 120, 0.35);
+      color: #ffb4ba;
+      font-size: 0.9rem;
+    }
+
+    .error-banner.visible { display: block; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>streamfork</h1>
+      <p class="subtitle">Configure and enable RTMP output streams.</p>
+    </header>
+
+    <div id="error" class="error-banner" role="alert"></div>
+
+    <div class="cards">
+      <section class="card">
+        <h2>Input</h2>
+        <div class="input-layout">
+          <div id="input-preview" class="input-preview offline">
+            <img id="input-snapshot" alt="" hidden>
+            <div id="input-preview-placeholder" class="input-preview-placeholder">No preview yet</div>
+          </div>
+          <div class="input-details">
+            <div class="input-row">
+              <span id="input-status" class="pill offline"><span class="dot"></span><span>Offline</span></span>
+              <span id="input-protocol" class="stat">Protocol: <strong>—</strong></span>
+              <span id="input-source" class="stat">Source: <strong>—</strong></span>
+              <span id="input-bitrate" class="stat">Bitrate: <strong>—</strong></span>
+              <span id="input-rtt" class="stat">RTT: <strong>—</strong></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Outputs</h2>
+        <ul id="outputs" class="outputs">
+          <li class="empty">Loading…</li>
+        </ul>
+      </section>
+    </div>
+
+    <p id="updated" class="footer">Updating…</p>
+  </main>
+
+  <script>
+    const outputsEl = document.getElementById("outputs");
+    const errorEl = document.getElementById("error");
+    const updatedEl = document.getElementById("updated");
+    const inputStatusEl = document.getElementById("input-status");
+    const inputProtocolEl = document.getElementById("input-protocol");
+    const inputSourceEl = document.getElementById("input-source");
+    const inputBitrateEl = document.getElementById("input-bitrate");
+    const inputRttEl = document.getElementById("input-rtt");
+    const inputPreviewEl = document.getElementById("input-preview");
+    const inputSnapshotEl = document.getElementById("input-snapshot");
+    const inputPreviewPlaceholderEl = document.getElementById("input-preview-placeholder");
+    let snapshotVersion = 0;
+
+    const pending = new Set();
+    const editing = new Set();
+    const drafts = {};
+    let outputConfigs = {};
+    let statusById = {};
+
+    function formatMbps(value) {
+      if (!value || value <= 0) return "—";
+      return value.toFixed(1) + " Mbps";
+    }
+
+    function formatMs(value) {
+      if (!value || value <= 0) return "—";
+      return Math.round(value) + " ms";
+    }
+
+    function stateLabel(state) {
+      if (!state) return "Unknown";
+      return state.charAt(0).toUpperCase() + state.slice(1);
+    }
+
+    function showError(message) {
+      errorEl.textContent = message;
+      errorEl.classList.add("visible");
+    }
+
+    function clearError() {
+      errorEl.textContent = "";
+      errorEl.classList.remove("visible");
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function renderInput(input) {
+      const online = input && input.online;
+      inputStatusEl.className = "pill " + (online ? "online" : "offline");
+      inputStatusEl.lastChild.textContent = online ? "Online" : "Offline";
+      inputProtocolEl.innerHTML = "Protocol: <strong>" + escapeHtml((input && input.protocol) || "—") + "</strong>";
+      inputSourceEl.innerHTML = "Source: <strong>" + escapeHtml((input && (input.source_ip || input.remote_addr)) || "—") + "</strong>";
+      inputBitrateEl.innerHTML = "Bitrate: <strong>" + formatMbps(input && input.bitrate_mbps) + "</strong>";
+      inputRttEl.innerHTML = "RTT: <strong>" + formatMs(input && input.rtt_ms) + "</strong>";
+
+      inputPreviewEl.classList.toggle("offline", !online);
+      if (online) {
+        snapshotVersion += 1;
+        inputSnapshotEl.hidden = false;
+        inputSnapshotEl.alt = "Input preview";
+        inputSnapshotEl.src = "/api/input/snapshot.jpg?v=" + snapshotVersion;
+        inputPreviewPlaceholderEl.hidden = true;
+        inputSnapshotEl.onerror = () => {
+          inputSnapshotEl.hidden = true;
+          inputPreviewPlaceholderEl.hidden = false;
+          inputPreviewPlaceholderEl.textContent = "Preview unavailable";
+        };
+      } else if (!inputSnapshotEl.src) {
+        inputSnapshotEl.hidden = true;
+        inputPreviewPlaceholderEl.hidden = false;
+        inputPreviewPlaceholderEl.textContent = "Waiting for input";
+      }
+    }
+
+    function fieldValue(id, field, serverValue) {
+      if (drafts[id] && drafts[id][field] !== undefined) {
+        return drafts[id][field];
+      }
+      const el = document.getElementById("field-" + field + "-" + id);
+      if (el && (editing.has(id + ":" + field) || document.activeElement === el)) {
+        return el.value;
+      }
+      return serverValue || "";
+    }
+
+    function effectiveConfig(id) {
+      const config = outputConfigs[id] || {};
+      return {
+        url: fieldValue(id, "url", config.url),
+        stream_key: fieldValue(id, "stream_key", config.stream_key),
+      };
+    }
+
+    function isDirty(id) {
+      const config = outputConfigs[id];
+      if (!config) return false;
+      const current = effectiveConfig(id);
+      return current.url.trim() !== (config.url || "")
+        || current.stream_key !== (config.stream_key || "");
+    }
+
+    function renderOutputs() {
+      const ids = Object.keys(outputConfigs).sort();
+      if (ids.length === 0) {
+        outputsEl.innerHTML = '<li class="empty">No outputs configured.</li>';
+        return;
+      }
+
+      outputsEl.innerHTML = ids.map((id) => {
+        const config = outputConfigs[id];
+        const status = statusById[id] || {};
+        const state = status.state || "idle";
+        const bitrate = status.progress && status.progress.BitrateKbps > 0
+          ? (status.progress.BitrateKbps / 1000).toFixed(1) + " Mbps"
+          : null;
+        const error = status.last_error
+          ? `<div class="output-error">${escapeHtml(status.last_error)}</div>`
+          : "";
+        const url = escapeHtml(fieldValue(id, "url", config.url));
+        const streamKey = escapeHtml(fieldValue(id, "stream_key", config.stream_key));
+        const dirty = isDirty(id);
+        const busy = pending.has(id);
+
+        return `
+          <li class="output" data-id="${escapeHtml(id)}">
+            <div class="output-header">
+              <div class="output-info">
+                <p class="output-title">${escapeHtml(config.label || id)}</p>
+                <div class="output-meta">
+                  <span class="pill ${escapeHtml(state)}"><span class="dot"></span><span>${escapeHtml(stateLabel(state))}</span></span>
+                  ${bitrate ? `<span>${bitrate}</span>` : ""}
+                  ${status.restart_count ? `<span>Restarts: ${status.restart_count}</span>` : ""}
+                </div>
+                ${error}
+              </div>
+              <label class="toggle" title="${config.enabled ? "Disable" : "Enable"} ${escapeHtml(config.label || id)}">
+                <input
+                  type="checkbox"
+                  ${config.enabled ? "checked" : ""}
+                  ${busy ? "disabled" : ""}
+                  data-id="${escapeHtml(id)}"
+                  data-action="toggle"
+                  aria-label="Toggle ${escapeHtml(config.label || id)}"
+                >
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+            <div class="output-fields">
+              <div class="field">
+                <label for="field-url-${escapeHtml(id)}">URL</label>
+                <input
+                  id="field-url-${escapeHtml(id)}"
+                  type="url"
+                  value="${url}"
+                  placeholder="rtmp://..."
+                  autocomplete="off"
+                  ${busy ? "disabled" : ""}
+                  data-id="${escapeHtml(id)}"
+                  data-field="url"
+                >
+              </div>
+              <div class="field">
+                <label for="field-stream_key-${escapeHtml(id)}">Stream key</label>
+                <input
+                  id="field-stream_key-${escapeHtml(id)}"
+                  type="password"
+                  value="${streamKey}"
+                  placeholder="Stream key"
+                  autocomplete="off"
+                  ${busy ? "disabled" : ""}
+                  data-id="${escapeHtml(id)}"
+                  data-field="stream_key"
+                >
+              </div>
+            </div>
+            <div class="output-actions">
+              <button
+                type="button"
+                class="btn"
+                data-id="${escapeHtml(id)}"
+                data-action="save"
+                ${busy || !dirty ? "disabled" : ""}
+              >Save</button>
+            </div>
+          </li>
+        `;
+      }).join("");
+
+      outputsEl.querySelectorAll("[data-action='toggle']").forEach((input) => {
+        input.addEventListener("change", () => toggleOutput(input));
+      });
+
+      outputsEl.querySelectorAll("[data-action='save']").forEach((button) => {
+        button.addEventListener("click", () => saveOutput(button.dataset.id));
+      });
+
+      outputsEl.querySelectorAll(".output-fields input").forEach((input) => {
+        const key = input.dataset.id + ":" + input.dataset.field;
+        input.addEventListener("focus", () => editing.add(key));
+        input.addEventListener("blur", () => editing.delete(key));
+        input.addEventListener("input", () => {
+          drafts[input.dataset.id] = drafts[input.dataset.id] || {};
+          drafts[input.dataset.id][input.dataset.field] = input.value;
+          const saveBtn = outputsEl.querySelector(`button[data-action='save'][data-id="${input.dataset.id}"]`);
+          if (saveBtn) {
+            saveBtn.disabled = pending.has(input.dataset.id) || !isDirty(input.dataset.id);
+          }
+        });
+      });
+    }
+
+    async function refresh() {
+      try {
+        const [statusRes, outputsRes] = await Promise.all([
+          fetch("/api/status", { cache: "no-store" }),
+          fetch("/api/outputs", { cache: "no-store" }),
+        ]);
+        if (!statusRes.ok) throw new Error("Status request failed (" + statusRes.status + ")");
+        if (!outputsRes.ok) throw new Error("Outputs request failed (" + outputsRes.status + ")");
+        const status = await statusRes.json();
+        const outputs = await outputsRes.json();
+        clearError();
+        renderInput(status.input);
+        outputConfigs = Object.fromEntries(outputs.map((out) => [out.id, out]));
+        statusById = Object.fromEntries((status.outputs || []).map((out) => [out.id, out]));
+        renderOutputs();
+        updatedEl.textContent = "Updated " + new Date(status.now || Date.now()).toLocaleTimeString();
+      } catch (err) {
+        showError(err.message || "Failed to load status");
+        updatedEl.textContent = "Update failed";
+      }
+    }
+
+    async function updateOutput(id, patch) {
+      pending.add(id);
+      renderOutputs();
+      clearError();
+
+      try {
+        const res = await fetch("/api/outputs/" + encodeURIComponent(id), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(body.error || "Update failed (" + res.status + ")");
+        }
+        delete drafts[id];
+        outputConfigs[id] = body;
+        pending.delete(id);
+        await refresh();
+        return body;
+      } catch (err) {
+        pending.delete(id);
+        renderOutputs();
+        throw err;
+      }
+    }
+
+    async function toggleOutput(input) {
+      const id = input.dataset.id;
+      const enabled = input.checked;
+      try {
+        await updateOutput(id, { enabled });
+      } catch (err) {
+        showError(err.message || "Failed to update output");
+      }
+    }
+
+    async function saveOutput(id) {
+      const config = outputConfigs[id];
+      if (!config) return;
+
+      const current = effectiveConfig(id);
+      const url = current.url.trim();
+      const streamKey = current.stream_key;
+      const patch = {};
+
+      if (url !== (config.url || "")) {
+        patch.url = url;
+      }
+      if (streamKey !== (config.stream_key || "")) {
+        if (streamKey.startsWith("*")) {
+          showError("Enter the full stream key to change it.");
+          return;
+        }
+        patch.stream_key = streamKey;
+      }
+
+      if (Object.keys(patch).length === 0) return;
+
+      try {
+        await updateOutput(id, patch);
+      } catch (err) {
+        showError(err.message || "Failed to save output");
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>
