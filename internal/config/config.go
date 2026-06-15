@@ -49,12 +49,12 @@ type RecordingConfig struct {
 }
 
 type Output struct {
-	ID          string `yaml:"id"`
-	Label       string `yaml:"label"`
-	URL         string `yaml:"url"`
-	StreamKey   string `yaml:"stream_key"`
-	Enabled     bool   `yaml:"enabled"`
-	TranscodeH264 bool `yaml:"transcode_h264"`
+	ID            string `yaml:"id" json:"id"`
+	Label         string `yaml:"label" json:"label"`
+	URL           string `yaml:"url" json:"url"`
+	StreamKey     string `yaml:"stream_key" json:"stream_key"`
+	Enabled       bool   `yaml:"enabled" json:"enabled"`
+	TranscodeH264 bool   `yaml:"transcode_h264" json:"transcode_h264"`
 }
 
 func Default() Config {

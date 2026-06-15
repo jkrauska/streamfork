@@ -137,9 +137,9 @@ func (m *Manager) Stop(ctx context.Context) {
 }
 
 func (m *Manager) ReloadOutputs(outputs []config.Output) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	var toStop []*outputWorker
 
+	m.mu.Lock()
 	m.cfg.Outputs = outputs
 	active := make(map[string]struct{}, len(outputs))
 	for _, out := range outputs {
@@ -149,16 +149,21 @@ func (m *Manager) ReloadOutputs(outputs []config.Output) {
 			continue
 		}
 		if worker, ok := m.workers[out.ID]; ok {
-			worker.stop()
 			delete(m.workers, out.ID)
+			toStop = append(toStop, worker)
 		}
 	}
 
 	for id, worker := range m.workers {
 		if _, ok := active[id]; !ok {
-			worker.stop()
 			delete(m.workers, id)
+			toStop = append(toStop, worker)
 		}
+	}
+	m.mu.Unlock()
+
+	for _, worker := range toStop {
+		worker.stop()
 	}
 }
 
@@ -176,14 +181,15 @@ func (m *Manager) StartOutput(id string) error {
 
 func (m *Manager) StopOutput(id string) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	worker, ok := m.workers[id]
 	if !ok {
+		m.mu.Unlock()
 		return fmt.Errorf("output %q is not running", id)
 	}
-	worker.stop()
 	delete(m.workers, id)
+	m.mu.Unlock()
+
+	worker.stop()
 	return nil
 }
 
@@ -342,7 +348,16 @@ func (w *outputWorker) runLoop(ctx context.Context) {
 		}
 
 		if err := w.runOnce(ctx); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			w.setError(err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		default:
 		}
 
 		nextBackoff := backoff
@@ -557,8 +572,10 @@ type managedProcess struct {
 	binary string
 	logger *slog.Logger
 
-	mu  sync.Mutex
-	cmd *exec.Cmd
+	mu      sync.Mutex
+	cmd     *exec.Cmd
+	done    chan struct{}
+	waitErr error
 }
 
 func newManagedProcess(name string, args []string, binary string, logger *slog.Logger) *managedProcess {
@@ -602,23 +619,45 @@ func (p *managedProcess) start(ctx context.Context) error {
 		return err
 	}
 	p.logger.Info("process started", "pid", p.cmd.Process.Pid)
+	p.spawnWaiter()
 	return nil
+}
+
+func (p *managedProcess) spawnWaiter() {
+	p.done = make(chan struct{})
+	go func() {
+		p.mu.Lock()
+		cmd := p.cmd
+		p.mu.Unlock()
+
+		var err error
+		if cmd != nil {
+			err = cmd.Wait()
+		}
+
+		p.mu.Lock()
+		p.waitErr = err
+		p.cmd = nil
+		p.mu.Unlock()
+
+		if err != nil {
+			p.logger.Warn("process exited", "err", err)
+		}
+		close(p.done)
+	}()
 }
 
 func (p *managedProcess) wait() error {
 	p.mu.Lock()
-	cmd := p.cmd
+	done := p.done
 	p.mu.Unlock()
-	if cmd == nil {
+	if done == nil {
 		return fmt.Errorf("%s not running", p.name)
 	}
-	err := cmd.Wait()
+	<-done
 	p.mu.Lock()
-	p.cmd = nil
+	err := p.waitErr
 	p.mu.Unlock()
-	if err != nil {
-		p.logger.Warn("process exited", "err", err)
-	}
 	return err
 }
 
@@ -629,19 +668,7 @@ func (p *managedProcess) stop() {
 	if cmd == nil || cmd.Process == nil {
 		return
 	}
-	_ = cmd.Process.Signal(os.Interrupt)
-	done := make(chan struct{})
-	go func() {
-		_ = cmd.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		_ = cmd.Process.Kill()
-		<-done
-	}
+	_ = cmd.Process.Kill()
 }
 
 func (p *managedProcess) running() bool {

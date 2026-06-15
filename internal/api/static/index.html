@@ -82,9 +82,22 @@
       align-items: center;
     }
 
+    .input-srt-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      align-items: center;
+    }
+
     .input-layout {
       display: grid;
       gap: 1rem;
+    }
+
+    .input-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
     }
 
     @media (min-width: 560px) {
@@ -110,6 +123,10 @@
       object-fit: cover;
     }
 
+    .input-preview:not(.has-image) img {
+      display: none;
+    }
+
     .input-preview-placeholder {
       position: absolute;
       inset: 0;
@@ -119,10 +136,16 @@
       padding: 1rem;
       text-align: center;
       color: var(--muted);
-      font-size: 0.85rem;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
 
-    .input-preview.offline img {
+    .input-preview.has-image .input-preview-placeholder {
+      display: none;
+    }
+
+    .input-preview.offline.has-image img {
       opacity: 0.35;
     }
 
@@ -162,6 +185,65 @@
     .stat strong {
       color: var(--text);
       font-weight: 600;
+    }
+
+    .bitrate-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .srt-buffer-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .srt-buffer-bar {
+      display: inline-block;
+      width: 3.5rem;
+      height: 0.35rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .srt-buffer-fill {
+      display: block;
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: var(--ok);
+      transition: width 0.35s ease, background-color 0.35s ease;
+    }
+
+    .srt-buffer-fill.low { background: var(--warn); }
+    .srt-buffer-fill.high { background: var(--bad); }
+
+    .sparkline {
+      display: inline-block;
+      vertical-align: middle;
+      opacity: 0.9;
+      flex-shrink: 0;
+    }
+
+    .sparkline polyline {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sparkline .sparkline-fill {
+      fill: rgba(79, 140, 255, 0.12);
+      stroke: none;
+    }
+
+    .sparkline .sparkline-baseline {
+      stroke: var(--border);
+      stroke-width: 1;
     }
 
     .outputs {
@@ -248,6 +330,23 @@
 
     .field input:disabled {
       opacity: 0.55;
+    }
+
+    .field-key-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: stretch;
+    }
+
+    .field-key-row input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .btn-small {
+      padding: 0.55rem 0.75rem;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .output-actions {
@@ -368,16 +467,28 @@
         <h2>Input</h2>
         <div class="input-layout">
           <div id="input-preview" class="input-preview offline">
-            <img id="input-snapshot" alt="" hidden>
-            <div id="input-preview-placeholder" class="input-preview-placeholder">No preview yet</div>
+            <img id="input-snapshot" alt="" decoding="async">
+            <div id="input-preview-placeholder" class="input-preview-placeholder">Unavailable</div>
           </div>
           <div class="input-details">
             <div class="input-row">
               <span id="input-status" class="pill offline"><span class="dot"></span><span>Offline</span></span>
               <span id="input-protocol" class="stat">Protocol: <strong>—</strong></span>
               <span id="input-source" class="stat">Source: <strong>—</strong></span>
-              <span id="input-bitrate" class="stat">Bitrate: <strong>—</strong></span>
+              <span id="input-resolution" class="stat">Resolution: <strong>—</strong></span>
+              <span id="input-fps" class="stat">Framerate: <strong>—</strong></span>
+              <span id="input-bitrate" class="stat bitrate-stat">
+                Bitrate: <strong>—</strong>
+                <svg id="input-bitrate-sparkline" class="sparkline" width="88" height="22" viewBox="0 0 88 22" aria-hidden="true"></svg>
+              </span>
               <span id="input-rtt" class="stat">RTT: <strong>—</strong></span>
+            </div>
+            <div id="input-srt-row" class="input-srt-row" hidden>
+              <span id="input-srt-buffer" class="stat srt-buffer-stat">
+                SRT buffer: <strong>—</strong>
+                <span class="srt-buffer-bar" aria-hidden="true"><span id="input-srt-buffer-fill" class="srt-buffer-fill"></span></span>
+              </span>
+              <span id="input-srt-packets" class="stat">SRT packets (60s): <strong>—</strong></span>
             </div>
           </div>
         </div>
@@ -401,8 +512,15 @@
     const inputStatusEl = document.getElementById("input-status");
     const inputProtocolEl = document.getElementById("input-protocol");
     const inputSourceEl = document.getElementById("input-source");
+    const inputResolutionEl = document.getElementById("input-resolution");
+    const inputFpsEl = document.getElementById("input-fps");
     const inputBitrateEl = document.getElementById("input-bitrate");
+    const inputBitrateSparklineEl = document.getElementById("input-bitrate-sparkline");
     const inputRttEl = document.getElementById("input-rtt");
+    const inputSrtRowEl = document.getElementById("input-srt-row");
+    const inputSrtBufferEl = document.getElementById("input-srt-buffer");
+    const inputSrtBufferFillEl = document.getElementById("input-srt-buffer-fill");
+    const inputSrtPacketsEl = document.getElementById("input-srt-packets");
     const inputPreviewEl = document.getElementById("input-preview");
     const inputSnapshotEl = document.getElementById("input-snapshot");
     const inputPreviewPlaceholderEl = document.getElementById("input-preview-placeholder");
@@ -410,9 +528,67 @@
 
     const pending = new Set();
     const editing = new Set();
+    const visibleKeys = new Set();
     const drafts = {};
     let outputConfigs = {};
     let statusById = {};
+
+    const BITRATE_WINDOW_MS = 60_000;
+    const bitrateSamples = [];
+    const outputBitrateSamples = {};
+    const srtPacketSamples = [];
+    let lastInboundBytes = null;
+    let lastInboundAt = null;
+    let lastSrtPackets = null;
+    let lastInput = null;
+
+    function pruneSamples(samples, now = Date.now()) {
+      const cutoff = now - BITRATE_WINDOW_MS;
+      while (samples.length > 0 && samples[0].t < cutoff) {
+        samples.shift();
+      }
+    }
+
+    function renderSparkline(svgEl, samples, now = Date.now()) {
+      const width = 88;
+      const height = 22;
+      const padX = 1;
+      const padY = 2;
+      const cutoff = now - BITRATE_WINDOW_MS;
+      const visible = samples.filter((sample) => sample.t >= cutoff);
+
+      if (visible.length < 2) {
+        svgEl.innerHTML =
+          `<line class="sparkline-baseline" x1="${padX}" y1="${height / 2}" x2="${width - padX}" y2="${height / 2}" />`;
+        svgEl.removeAttribute("title");
+        return;
+      }
+
+      const values = visible.map((sample) => sample.v);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const range = max - min || 1;
+      const plotWidth = width - padX * 2;
+      const plotHeight = height - padY * 2;
+
+      const points = visible.map((sample) => {
+        const x = padX + ((sample.t - cutoff) / BITRATE_WINDOW_MS) * plotWidth;
+        const y = padY + (1 - (sample.v - min) / range) * plotHeight;
+        return { x, y };
+      });
+
+      const linePoints = points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+      const areaPoints = [
+        `${points[0].x.toFixed(1)},${(height - padY).toFixed(1)}`,
+        ...points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`),
+        `${points[points.length - 1].x.toFixed(1)},${(height - padY).toFixed(1)}`,
+      ].join(" ");
+
+      svgEl.innerHTML =
+        `<polygon class="sparkline-fill" points="${areaPoints}" />` +
+        `<polyline points="${linePoints}" />`;
+      svgEl.title = "Last 60s: " + min.toFixed(1) + "–" + max.toFixed(1) + " Mbps";
+    }
 
     function formatMbps(value) {
       if (!value || value <= 0) return "—";
@@ -447,31 +623,245 @@
         .replaceAll('"', "&quot;");
     }
 
+    function formatResolution(input) {
+      if (!input || !input.video_width || !input.video_height) return "—";
+      return input.video_width + "×" + input.video_height;
+    }
+
+    function formatFPS(value) {
+      if (!value || value <= 0) return "—";
+      const rounded = Math.round(value * 100) / 100;
+      return rounded + " fps";
+    }
+
+    function showPreviewPlaceholder(message) {
+      inputPreviewEl.classList.remove("has-image");
+      inputPreviewPlaceholderEl.textContent = message;
+    }
+
+    function loadSnapshot() {
+      snapshotVersion += 1;
+      const url = "/api/input/snapshot.jpg?v=" + snapshotVersion;
+      const hadImage = inputPreviewEl.classList.contains("has-image");
+
+      if (!hadImage) {
+        showPreviewPlaceholder("Unavailable");
+      }
+
+      const probe = new Image();
+      probe.decoding = "async";
+      probe.onload = () => {
+        inputSnapshotEl.src = url;
+        inputPreviewEl.classList.add("has-image");
+      };
+      probe.onerror = () => {
+        inputSnapshotEl.removeAttribute("src");
+        showPreviewPlaceholder("Unavailable");
+      };
+      probe.src = url;
+    }
+
+    function recordBitrateSample(input) {
+      const now = Date.now();
+      let mbps = 0;
+
+      if (input && input.online) {
+        if (input.bitrate_mbps > 0) {
+          mbps = input.bitrate_mbps;
+        } else if (input.inbound_bytes > 0 && lastInboundBytes !== null && lastInboundAt !== null) {
+          const dt = (now - lastInboundAt) / 1000;
+          if (dt > 0) {
+            const delta = input.inbound_bytes - lastInboundBytes;
+            if (delta >= 0) {
+              mbps = (delta * 8) / (dt * 1_000_000);
+            }
+          }
+        }
+
+        if (input.inbound_bytes > 0) {
+          lastInboundBytes = input.inbound_bytes;
+          lastInboundAt = now;
+        }
+      } else {
+        lastInboundBytes = null;
+        lastInboundAt = null;
+      }
+
+      if (mbps > 0) {
+        bitrateSamples.push({ t: now, v: mbps });
+      }
+
+      pruneSamples(bitrateSamples, now);
+    }
+
+    function recordOutputBitrateSamples(statuses) {
+      const now = Date.now();
+      const activeIds = new Set();
+
+      for (const [id, status] of Object.entries(statuses)) {
+        activeIds.add(id);
+        const mbps = status.progress && status.progress.BitrateKbps > 0
+          ? status.progress.BitrateKbps / 1000
+          : 0;
+
+        if (status.state === "live" && mbps > 0) {
+          if (!outputBitrateSamples[id]) {
+            outputBitrateSamples[id] = [];
+          }
+          outputBitrateSamples[id].push({ t: now, v: mbps });
+          pruneSamples(outputBitrateSamples[id], now);
+        }
+      }
+
+      for (const id of Object.keys(outputBitrateSamples)) {
+        if (!activeIds.has(id)) {
+          delete outputBitrateSamples[id];
+        }
+      }
+    }
+
+    function currentBitrateMbps(input) {
+      if (input && input.bitrate_mbps > 0) {
+        return input.bitrate_mbps;
+      }
+      if (bitrateSamples.length > 0) {
+        return bitrateSamples[bitrateSamples.length - 1].v;
+      }
+      return 0;
+    }
+
+    function renderBitrateSparkline(now = Date.now()) {
+      renderSparkline(inputBitrateSparklineEl, bitrateSamples, now);
+    }
+
+    function renderOutputBitrateSparklines(now = Date.now()) {
+      for (const samples of Object.values(outputBitrateSamples)) {
+        pruneSamples(samples, now);
+      }
+
+      outputsEl.querySelectorAll(".output-sparkline").forEach((svgEl) => {
+        const samples = outputBitrateSamples[svgEl.dataset.outputId] || [];
+        renderSparkline(svgEl, samples, now);
+      });
+    }
+
+    function formatSRTBuffer(input) {
+      if (!input || !input.online || input.receive_buffer_ms <= 0) {
+        return "—";
+      }
+      const bufferMs = input.receive_buffer_ms;
+      const latencyMs = input.receive_latency_ms;
+      if (latencyMs > 0) {
+        return bufferMs + " / " + latencyMs + " ms";
+      }
+      return formatMs(bufferMs);
+    }
+
+    function renderSRTBufferFill(input) {
+      inputSrtBufferFillEl.className = "srt-buffer-fill";
+      inputSrtBufferFillEl.style.width = "0";
+
+      if (!input || !input.online || input.receive_buffer_ms <= 0 || input.receive_latency_ms <= 0) {
+        return;
+      }
+
+      const ratio = input.receive_buffer_ms / input.receive_latency_ms;
+      inputSrtBufferFillEl.style.width = Math.min(100, ratio * 100).toFixed(1) + "%";
+      if (ratio < 0.15) {
+        inputSrtBufferFillEl.classList.add("low");
+      } else if (ratio > 0.9) {
+        inputSrtBufferFillEl.classList.add("high");
+      }
+    }
+
+    function recordSrtPacketSample(input) {
+      const now = Date.now();
+
+      if (!input || !input.online || input.protocol !== "SRT") {
+        lastSrtPackets = null;
+        return;
+      }
+
+      const current = {
+        loss: input.packets_received_loss || 0,
+        retrans: input.packets_retrans || 0,
+        dropped: input.packets_dropped || 0,
+      };
+
+      if (lastSrtPackets !== null) {
+        const delta = {
+          t: now,
+          loss: Math.max(0, current.loss - lastSrtPackets.loss),
+          retrans: Math.max(0, current.retrans - lastSrtPackets.retrans),
+          dropped: Math.max(0, current.dropped - lastSrtPackets.dropped),
+        };
+        if (delta.loss > 0 || delta.retrans > 0 || delta.dropped > 0) {
+          srtPacketSamples.push(delta);
+        }
+      }
+
+      lastSrtPackets = current;
+      pruneSamples(srtPacketSamples, now);
+    }
+
+    function srtPacketWindowTotals(now = Date.now()) {
+      const cutoff = now - BITRATE_WINDOW_MS;
+      return srtPacketSamples.reduce(
+        (totals, sample) => {
+          if (sample.t < cutoff) {
+            return totals;
+          }
+          totals.loss += sample.loss;
+          totals.retrans += sample.retrans;
+          totals.dropped += sample.dropped;
+          return totals;
+        },
+        { loss: 0, retrans: 0, dropped: 0 },
+      );
+    }
+
+    function renderSRTPackets(input) {
+      if (!input || !input.online || input.protocol !== "SRT") {
+        inputSrtPacketsEl.innerHTML = "SRT packets (60s): <strong>—</strong>";
+        return;
+      }
+
+      const totals = srtPacketWindowTotals();
+      inputSrtPacketsEl.innerHTML =
+        "SRT packets (60s): <strong>" +
+        totals.loss + " loss · " + totals.retrans + " retrans · " + totals.dropped + " dropped</strong>";
+    }
+
     function renderInput(input) {
+      lastInput = input || null;
       const online = input && input.online;
+      const isSRT = input && input.protocol === "SRT";
+      recordBitrateSample(input);
       inputStatusEl.className = "pill " + (online ? "online" : "offline");
       inputStatusEl.lastChild.textContent = online ? "Online" : "Offline";
       inputProtocolEl.innerHTML = "Protocol: <strong>" + escapeHtml((input && input.protocol) || "—") + "</strong>";
       inputSourceEl.innerHTML = "Source: <strong>" + escapeHtml((input && (input.source_ip || input.remote_addr)) || "—") + "</strong>";
-      inputBitrateEl.innerHTML = "Bitrate: <strong>" + formatMbps(input && input.bitrate_mbps) + "</strong>";
+      inputResolutionEl.innerHTML = "Resolution: <strong>" + escapeHtml(formatResolution(input)) + "</strong>";
+      inputFpsEl.innerHTML = "Framerate: <strong>" + escapeHtml(formatFPS(input && input.video_fps)) + "</strong>";
+      inputBitrateEl.querySelector("strong").textContent = formatMbps(currentBitrateMbps(input));
+      renderBitrateSparkline();
       inputRttEl.innerHTML = "RTT: <strong>" + formatMs(input && input.rtt_ms) + "</strong>";
+
+      inputSrtRowEl.hidden = !isSRT;
+      if (isSRT) {
+        inputSrtBufferEl.querySelector("strong").textContent = formatSRTBuffer(input);
+        renderSRTBufferFill(input);
+        recordSrtPacketSample(input);
+        renderSRTPackets(input);
+      } else {
+        recordSrtPacketSample(input);
+      }
 
       inputPreviewEl.classList.toggle("offline", !online);
       if (online) {
-        snapshotVersion += 1;
-        inputSnapshotEl.hidden = false;
-        inputSnapshotEl.alt = "Input preview";
-        inputSnapshotEl.src = "/api/input/snapshot.jpg?v=" + snapshotVersion;
-        inputPreviewPlaceholderEl.hidden = true;
-        inputSnapshotEl.onerror = () => {
-          inputSnapshotEl.hidden = true;
-          inputPreviewPlaceholderEl.hidden = false;
-          inputPreviewPlaceholderEl.textContent = "Preview unavailable";
-        };
-      } else if (!inputSnapshotEl.src) {
-        inputSnapshotEl.hidden = true;
-        inputPreviewPlaceholderEl.hidden = false;
-        inputPreviewPlaceholderEl.textContent = "Waiting for input";
+        loadSnapshot();
+      } else if (!inputPreviewEl.classList.contains("has-image")) {
+        showPreviewPlaceholder("Waiting for input");
       }
     }
 
@@ -513,9 +903,15 @@
         const config = outputConfigs[id];
         const status = statusById[id] || {};
         const state = status.state || "idle";
-        const bitrate = status.progress && status.progress.BitrateKbps > 0
-          ? (status.progress.BitrateKbps / 1000).toFixed(1) + " Mbps"
-          : null;
+        const samples = outputBitrateSamples[id] || [];
+        const mbps = status.progress && status.progress.BitrateKbps > 0
+          ? status.progress.BitrateKbps / 1000
+          : 0;
+        const displayMbps = mbps > 0 ? mbps : (samples.at(-1)?.v || 0);
+        const showBitrate = state === "live" || samples.length > 0;
+        const bitrate = showBitrate
+          ? `<span class="bitrate-stat">${formatMbps(displayMbps)}<svg class="sparkline output-sparkline" data-output-id="${escapeHtml(id)}" width="88" height="22" viewBox="0 0 88 22" aria-hidden="true"></svg></span>`
+          : "";
         const error = status.last_error
           ? `<div class="output-error">${escapeHtml(status.last_error)}</div>`
           : "";
@@ -523,6 +919,7 @@
         const streamKey = escapeHtml(fieldValue(id, "stream_key", config.stream_key));
         const dirty = isDirty(id);
         const busy = pending.has(id);
+        const keyVisible = visibleKeys.has(id);
 
         return `
           <li class="output" data-id="${escapeHtml(id)}">
@@ -531,7 +928,7 @@
                 <p class="output-title">${escapeHtml(config.label || id)}</p>
                 <div class="output-meta">
                   <span class="pill ${escapeHtml(state)}"><span class="dot"></span><span>${escapeHtml(stateLabel(state))}</span></span>
-                  ${bitrate ? `<span>${bitrate}</span>` : ""}
+                  ${bitrate ? bitrate : ""}
                   ${status.restart_count ? `<span>Restarts: ${status.restart_count}</span>` : ""}
                 </div>
                 ${error}
@@ -564,16 +961,25 @@
               </div>
               <div class="field">
                 <label for="field-stream_key-${escapeHtml(id)}">Stream key</label>
-                <input
-                  id="field-stream_key-${escapeHtml(id)}"
-                  type="password"
-                  value="${streamKey}"
-                  placeholder="Stream key"
-                  autocomplete="off"
-                  ${busy ? "disabled" : ""}
-                  data-id="${escapeHtml(id)}"
-                  data-field="stream_key"
-                >
+                <div class="field-key-row">
+                  <input
+                    id="field-stream_key-${escapeHtml(id)}"
+                    type="${keyVisible ? "text" : "password"}"
+                    value="${streamKey}"
+                    placeholder="Stream key"
+                    autocomplete="off"
+                    ${busy ? "disabled" : ""}
+                    data-id="${escapeHtml(id)}"
+                    data-field="stream_key"
+                  >
+                  <button
+                    type="button"
+                    class="btn btn-small"
+                    data-id="${escapeHtml(id)}"
+                    data-action="toggle-key"
+                    ${busy ? "disabled" : ""}
+                  >${keyVisible ? "Hide key" : "Show key"}</button>
+                </div>
               </div>
             </div>
             <div class="output-actions">
@@ -589,12 +995,26 @@
         `;
       }).join("");
 
+      renderOutputBitrateSparklines();
+
       outputsEl.querySelectorAll("[data-action='toggle']").forEach((input) => {
         input.addEventListener("change", () => toggleOutput(input));
       });
 
       outputsEl.querySelectorAll("[data-action='save']").forEach((button) => {
         button.addEventListener("click", () => saveOutput(button.dataset.id));
+      });
+
+      outputsEl.querySelectorAll("[data-action='toggle-key']").forEach((button) => {
+        button.addEventListener("click", () => {
+          const id = button.dataset.id;
+          if (visibleKeys.has(id)) {
+            visibleKeys.delete(id);
+          } else {
+            visibleKeys.add(id);
+          }
+          renderOutputs();
+        });
       });
 
       outputsEl.querySelectorAll(".output-fields input").forEach((input) => {
@@ -626,6 +1046,7 @@
         renderInput(status.input);
         outputConfigs = Object.fromEntries(outputs.map((out) => [out.id, out]));
         statusById = Object.fromEntries((status.outputs || []).map((out) => [out.id, out]));
+        recordOutputBitrateSamples(statusById);
         renderOutputs();
         updatedEl.textContent = "Updated " + new Date(status.now || Date.now()).toLocaleTimeString();
       } catch (err) {
@@ -684,10 +1105,6 @@
         patch.url = url;
       }
       if (streamKey !== (config.stream_key || "")) {
-        if (streamKey.startsWith("*")) {
-          showError("Enter the full stream key to change it.");
-          return;
-        }
         patch.stream_key = streamKey;
       }
 
@@ -702,6 +1119,16 @@
 
     refresh();
     setInterval(refresh, 3000);
+    setInterval(() => {
+      if (bitrateSamples.length > 0) {
+        renderBitrateSparkline();
+      }
+      renderOutputBitrateSparklines();
+      if (lastInput && lastInput.protocol === "SRT" && lastInput.online) {
+        pruneSamples(srtPacketSamples);
+        renderSRTPackets(lastInput);
+      }
+    }, 1000);
   </script>
 </body>
 </html>

@@ -61,7 +61,7 @@ Open the control API root in a browser (default [http://localhost:8787/](http://
 | GET | `/healthz` | Liveness |
 | GET | `/api/status` | Input SRT stats + output worker states |
 | GET | `/api/input/snapshot.jpg` | Latest JPEG preview frame (when input is online) |
-| GET | `/api/outputs` | List outputs (stream keys redacted) |
+| GET | `/api/outputs` | List outputs |
 | POST | `/api/outputs` | Add output |
 | PUT | `/api/outputs/{id}` | Update output (partial patch) |
 | DELETE | `/api/outputs/{id}` | Remove output |

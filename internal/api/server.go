@@ -44,6 +44,7 @@ type Server struct {
 
 type SnapshotProvider interface {
 	Image() ([]byte, time.Time, bool)
+	VideoStats() (width, height int, fps float64, ok bool)
 }
 
 func NewServer(store ConfigStore, runtime Runtime, mtx *mediamtx.Client, snapshot SnapshotProvider) *Server {
@@ -108,6 +109,13 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	input, _ := s.mtx.GetInputStats(ctx, cfg.Input.Path)
+	if s.snapshot != nil {
+		if width, height, fps, ok := s.snapshot.VideoStats(); ok {
+			input.VideoWidth = width
+			input.VideoHeight = height
+			input.VideoFPS = fps
+		}
+	}
 	resp := StatusResponse{
 		Now:     time.Now().UTC(),
 		Input:   input,
@@ -140,7 +148,7 @@ func (s *Server) handleInputSnapshot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListOutputs(w http.ResponseWriter, r *http.Request) {
-	cfg := s.store.Get().Redacted()
+	cfg := s.store.Get()
 	writeJSON(w, http.StatusOK, cfg.Outputs)
 }
 
@@ -171,7 +179,7 @@ func (s *Server) handleCreateOutput(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, out.Redacted())
+	writeJSON(w, http.StatusCreated, out)
 }
 
 func (s *Server) handleUpdateOutput(w http.ResponseWriter, r *http.Request) {
@@ -222,7 +230,7 @@ func (s *Server) handleUpdateOutput(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, updated.Redacted())
+	writeJSON(w, http.StatusOK, updated)
 }
 
 func (s *Server) handleDeleteOutput(w http.ResponseWriter, r *http.Request) {

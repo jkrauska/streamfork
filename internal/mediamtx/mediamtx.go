@@ -66,6 +66,9 @@ type InputStats struct {
 	Online              bool    `json:"online"`
 	Protocol            string  `json:"protocol,omitempty"`
 	SourceIP            string  `json:"source_ip,omitempty"`
+	VideoWidth          int     `json:"video_width,omitempty"`
+	VideoHeight         int     `json:"video_height,omitempty"`
+	VideoFPS            float64 `json:"video_fps,omitempty"`
 	BitrateMbps         float64 `json:"bitrate_mbps"`
 	RTTMs               float64 `json:"rtt_ms"`
 	ReceiveBufferMs     uint64  `json:"receive_buffer_ms"`
