@@ -189,14 +189,18 @@ func (a *App) logConfigSummary(cfg config.Config, source string) {
 		}
 	}
 
-	a.logger.Info("configuration loaded",
+	logArgs := []any{
 		"source", source,
 		"control_listen", cfg.Server.Listen,
 		"input_path", cfg.Input.Path,
 		"recording_enabled", cfg.Recording.Enabled,
 		"outputs_total", len(cfg.Outputs),
 		"outputs_enabled", enabled,
-	)
+	}
+	if cfg.Input.SRTLatencyMs > 0 {
+		logArgs = append(logArgs, "srt_latency_ms", cfg.Input.SRTLatencyMs)
+	}
+	a.logger.Info("configuration loaded", logArgs...)
 
 	for _, out := range cfg.Outputs {
 		if out.Enabled {

@@ -11,6 +11,8 @@ server:
 input:
   path: field
   srt_publish_passphrase: ""
+  # Magewell Mini latency buffer (ms). Set the same value on the SRT caller.
+  srt_latency_ms: 3000
 
 mediamtx:
   binary: bin/mediamtx
