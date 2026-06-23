@@ -2,11 +2,18 @@ BINARY := bin/streamfork
 CONFIG ?= data/streamfork.yml
 LOCAL_CONFIG := data/streamfork.local.yml
 
-.PHONY: build run run-local run-linux setup setup-local deps-macos
+.PHONY: all build clean run run-local run-linux setup setup-local deps-macos
+
+all: build
 
 build:
 	@mkdir -p bin
 	go build -trimpath -o $(BINARY) ./cmd/streamfork
+
+# Remove build artifacts (leaves data/ and configs untouched).
+clean:
+	go clean
+	rm -rf bin
 
 setup:
 	@mkdir -p data/recordings
