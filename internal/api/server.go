@@ -85,9 +85,15 @@ func (s *Server) routes() {
 type StatusResponse struct {
 	Now        time.Time                `json:"now"`
 	Input      mediamtx.InputStats      `json:"input"`
+	InputSettings InputSettings         `json:"input_settings"`
 	MediaMTX   MediaMTXStatus           `json:"mediamtx"`
 	Outputs    []supervisor.OutputStatus `json:"outputs"`
 	Recording  RecordingStatus          `json:"recording"`
+}
+
+type InputSettings struct {
+	Path         string `json:"path"`
+	SRTLatencyMs int    `json:"srt_latency_ms,omitempty"`
 }
 
 type MediaMTXStatus struct {
@@ -119,6 +125,10 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	resp := StatusResponse{
 		Now:     time.Now().UTC(),
 		Input:   input,
+		InputSettings: InputSettings{
+			Path:         cfg.Input.Path,
+			SRTLatencyMs: cfg.Input.SRTLatencyMs,
+		},
 		MediaMTX: MediaMTXStatus{Running: s.runtime.MediaRunning()},
 		Outputs: s.runtime.OutputStatuses(),
 		Recording: RecordingStatus{

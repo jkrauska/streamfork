@@ -28,8 +28,11 @@ type ServerConfig struct {
 }
 
 type InputConfig struct {
-	Path                string `yaml:"path"`
+	Path                 string `yaml:"path"`
 	SRTPublishPassphrase string `yaml:"srt_publish_passphrase,omitempty"`
+	// SRTLatencyMs is the recommended caller latency (Magewell Mini buffer).
+	// SRT latency is negotiated by the publisher; MediaMTX cannot override it.
+	SRTLatencyMs int `yaml:"srt_latency_ms,omitempty" json:"srt_latency_ms,omitempty"`
 }
 
 type MediaMTXConfig struct {
@@ -159,6 +162,12 @@ func (c *Config) applyDefaults() {
 func (c Config) Validate() error {
 	if strings.TrimSpace(c.Input.Path) == "" {
 		return errors.New("input.path is required")
+	}
+	if c.Input.SRTLatencyMs < 0 {
+		return errors.New("input.srt_latency_ms must be >= 0")
+	}
+	if c.Input.SRTLatencyMs > 0 && c.Input.SRTLatencyMs < 120 {
+		return errors.New("input.srt_latency_ms must be at least 120 when set")
 	}
 	for _, out := range c.Outputs {
 		if err := out.Validate(); err != nil {

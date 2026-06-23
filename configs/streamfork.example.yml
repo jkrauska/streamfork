@@ -8,6 +8,8 @@ input:
   path: field
   # Optional SRT publish passphrase. Leave empty for streamid-only ingest.
   srt_publish_passphrase: ""
+  # Recommended Magewell Mini / SRT caller latency buffer (ms). Omit to leave unset.
+  srt_latency_ms: 3000
 
 mediamtx:
   binary: /usr/local/bin/mediamtx

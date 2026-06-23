@@ -219,7 +219,6 @@
     }
 
     .srt-buffer-fill.low { background: var(--warn); }
-    .srt-buffer-fill.high { background: var(--bad); }
 
     .sparkline {
       display: inline-block;
@@ -769,8 +768,6 @@
       inputSrtBufferFillEl.style.width = Math.min(100, ratio * 100).toFixed(1) + "%";
       if (ratio < 0.15) {
         inputSrtBufferFillEl.classList.add("low");
-      } else if (ratio > 0.9) {
-        inputSrtBufferFillEl.classList.add("high");
       }
     }
 
